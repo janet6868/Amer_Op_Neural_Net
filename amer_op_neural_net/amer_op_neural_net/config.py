@@ -87,6 +87,6 @@ simulation_size = n_totalstep * num_channels * batch_size
 simulation_index = np.arange(simulation_size, dtype=int)
 print(" Simulation size: ", simulation_size)
 if opt_seed:
-    AmerOp_seeds = np.random.randint(2 **30, size=N + 1)
+    AmerOp_seeds = np.random.randint(2 ** 32 - 1, size=N + 1, dtype = np.int64)
 else:
     AmerOp_seeds = None

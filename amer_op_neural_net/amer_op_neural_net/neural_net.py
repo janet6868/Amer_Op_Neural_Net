@@ -58,7 +58,7 @@ class NeuralNet:
         self.n_decaystep = tf.compat.v1.get_variable("n_decaystep", dtype=tf.int32, shape=[],
                                            initializer=tf.constant_initializer(0), trainable=False)
         ## self.rate: Global learning rate of the Adam optimizer
-        self.rate = tf.cast(tf.compat.v1.train.exponential_decay(
+        self.rate = tf.compat.v1.cast(tf.compat.v1.train.exponential_decay(
             self.init_rate, global_step=tf.clip_by_value(self.step - self.n_relaxstep, 0, self.n_decaystep),
             decay_steps=self.n_decaystep, decay_rate=self.decay_rate, staircase=False), dtype=tf_floattype)
         ## self.bn_rate: Learning rate of the batch normalization
@@ -97,7 +97,7 @@ class NeuralNet:
         batch_norm_name: string, the name of the batch normalization layer
         dim: int, dimension of the batch normalization layer (= dimension of the hidden layer)
         '''
-        with tf.variable_scope(batch_norm_name, reuse=tf.compat.v1.AUTO_REUSE):
+        with tf.compat.v1.variable_scope(batch_norm_name, reuse=tf.compat.v1.AUTO_REUSE):
             tf.compat.v1.get_variable("mv_mean", dtype=tf_floattype, shape=[1, num_channels, dim],
                             initializer=tf.constant_initializer(0.0), trainable=False)
             tf.compat.v1.get_variable("mv_var", dtype=tf_floattype, shape=[1, num_channels, dim],
@@ -115,20 +115,20 @@ class NeuralNet:
         Z: hidden layer value
         input_mv: boolean, whether a batch normalization layer is an input normalization (or a hidden layer normalization)
         '''
-        with tf.compat.v1.variable_scope(batch_norm_name, reuse=tf.compat.v1.AUTO_REUSE):
+        with tf.compat.v1.variable_scope(batch_norm_name, reuse=tf.AUTO_REUSE):
             mv_mean = tf.compat.v1.get_variable("mv_mean", dtype=tf_floattype)
             mv_var = tf.compat.v1.get_variable("mv_var", dtype=tf_floattype)
             beta = tf.compat.v1.get_variable("beta", dtype=tf_floattype)
             gamma = tf.compat.v1.get_variable("gamma", dtype=tf_floattype)
             batch_mean, batch_var = tf.nn.moments(Z, axes=list(range(len(Z.get_shape())-2)), keep_dims=True)
             if input_mv:
-                input_mv_init_op = [tf.assign(mv_mean, batch_mean), tf.assign(mv_var, batch_var)]
+                input_mv_init_op = [tf.compat.v1.assign(mv_mean, batch_mean), tf.assign(mv_var, batch_var)]
                 Z = tf.nn.batch_normalization(Z, mv_mean, mv_var, beta, gamma, tol)
                 return input_mv_init_op, Z
             else:
-                train_mv_mean = tf.assign(mv_mean,
+                train_mv_mean = tf.compat.v1.assign(mv_mean,
                                           mv_mean * (1.0 - self.bn_rate) + batch_mean * self.bn_rate)
-                train_mv_var = tf.assign(mv_var,
+                train_mv_var = tf.compat.v1.assign(mv_var,
                                          mv_var * (1.0 - self.bn_rate) + batch_var * self.bn_rate)
                 with tf.control_dependencies([train_mv_mean, train_mv_var]):
                     Z = tf.nn.batch_normalization(Z, mv_mean, mv_var, beta, gamma, tol)
@@ -148,13 +148,13 @@ class NeuralNet:
         """
         #### Input layers
         layer = 0
-        with tf.compat.v1.variable_scope("layer" + str(layer), reuse=tf.compat.v1.AUTO_REUSE):
+        with tf.compat.v1.variable_scope("layer" + str(layer), reuse=tf.AUTO_REUSE):
             self.__batch_norm_layer_variables("batchX", d)
             self.__batch_norm_layer_variables("batchZ", self.dim_layers[0])
 
         #### Hidden layers
         for layer in range(1, self.num_layers - 1):
-            with tf.compat.v1.variable_scope("layer" + str(layer), reuse=tf.compat.v1.AUTO_REUSE):
+            with tf.compat.v1.variable_scope("layer" + str(layer), reuse=tf.AUTO_REUSE):
                 if layer == 1:
                     lim = stddev / math.sqrt(d + self.dim_layers[1])
                     WX = tf.compat.v1.get_variable("WX", dtype=tf_floattype,
@@ -181,7 +181,7 @@ class NeuralNet:
         self.ensemble_alpha = tf.reduce_mean(self.alpha)
 
         layer = self.num_layers - 1
-        with tf.variable_scope("layer" + str(layer), reuse=tf.AUTO_REUSE):
+        with tf.compat.v1.variable_scope("layer" + str(layer), reuse=tf.AUTO_REUSE):
             lim = stddev / math.sqrt(self.dim_layers[layer - 1] + 1)
             self.WZ = tf.compat.v1.get_variable("WZ", dtype=tf_floattype,
                                       shape=[num_channels, self.dim_layers[layer - 1], 1],
@@ -198,7 +198,7 @@ class NeuralNet:
 
         #### Input layers
         layer = 0
-        with tf.compat.v1.variable_scope("layer" + str(layer), reuse=tf.compat.v1.AUTO_REUSE):
+        with tf.compat.v1.variable_scope("layer" + str(layer), reuse=tf.AUTO_REUSE):
             L = levelset_function(X, sharpness=sharpness)
 
             input_mv_init_op, X_normal = self.__batch_norm_layer("batchX", X, input_mv=True)
@@ -211,7 +211,7 @@ class NeuralNet:
 
         #### Hidden layers
         for layer in range(1, self.num_layers - 1):
-            with tf.compat.v1.variable_scope("layer" + str(layer), reuse=tf.compat.v1.AUTO_REUSE):
+            with tf.compat.v1.variable_scope("layer" + str(layer), reuse=tf.AUTO_REUSE):
                 ## Linear transformation
                 if layer == 1:
                     WX = tf.compat.v1.get_variable("WX", dtype=tf_floattype)
@@ -301,9 +301,9 @@ class NeuralNet:
         '''
         print("\n **** ", self.NN_name, ", Training : ")
         self.n = n
-        sess.run([tf.assign(self.delta, updaten - self.n % updaten),
-                  tf.assign(self.init_rate, init_rate), tf.assign(self.decay_rate, decay_rate),
-                  tf.assign(self.n_relaxstep, n_relaxstep), tf.assign(self.n_decaystep, n_decaystep)])
+        sess.run([tf.compat.v1.assign(self.delta, updaten - self.n % updaten),
+                  tf.compat.v1.assign(self.init_rate, init_rate), tf.assign(self.decay_rate, decay_rate),
+                  tf.compat.v1.assign(self.n_relaxstep, n_relaxstep), tf.assign(self.n_decaystep, n_decaystep)])
 
         def customer_reshape(Xn):
             if Xn.ndim == 2:
